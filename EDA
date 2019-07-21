@@ -1,0 +1,157 @@
+#-----------------------------------
+overview <- function(data)
+{
+  x = as.data.frame(x=c(nrow(data)
+                        ,ncol(data)
+                        ,sum(sapply(data, is.numeric))
+                        ,sum(sapply(data,is.factor))
+                        ,sum(sapply(data,is.character))
+                        ,sum(sapply(data,is.logical))
+                        ,sum(table(which(sapply(data, var)==0))))
+                    ,row.names = c('Sample Size','No. of Variables','No. of Numeric Variables'
+                                   ,'No. of factor Variables','No. of Character Variables'
+                                   ,'No. of Logical Variables','No. of Zero variance Variables (Uniform)'))
+  
+  colnames(x) <- c('Obs')
+  return(x) 
+}
+
+#-----------------------------------------------
+structure <- function(data)
+{
+  x <- data.frame(
+    "Variable Type" = sapply(data, class)
+    ,"Percentage of Missing" = colSums(as.matrix(round(apply(data,2,is.na)/nrow(data) *100)))
+    ,"No. of Unique Values" = (sapply(sapply(data, unique), length)))
+  return(x)
+}
+
+#-----------------------------------------------
+# Convert into factors
+fact_convert <- function(data=c,levels=10)
+{
+  for(i in 1:ncol(data))
+  {
+    if(length(unique(data[,i])) < levels)
+    {
+      data[,i] = factor(data[,i])
+      print(paste(names(data[i]),"converted to factor"))
+    }
+  }
+}
+
+#------------for all the data----------------------------
+multi_visual <-function(data,dirc = getwd())
+{
+  v <- c()
+  for(i in 1:ncol(data))
+  {
+    if(is.numeric(data[,i]))
+    {
+      v <- c(v,i)
+    }
+  }
+  vc <- data[,v]
+  #scatterplot
+  setwd(dirc)
+  png(paste("Heat Map", ".png", sep=""), width = 1920, height = 1080) #NOTE this step
+  
+  plot(vc, pch=20 , cex=1, col=rgb(0.5, 0.8, 0.9, 0.7))
+  
+  #heatmap
+  
+  cormat<-signif(cor(vc,use = "complete.obs"),2)
+  col<- colorRampPalette(c("#edf8fb", "#006d2c"))(30)
+  #cc <- rainbow(nrow(cormat))
+  print(heatmap(cormat, col=col, symm=TRUE,margins = c(18,8),keep.dendro = FALSE))
+  title("Heat Map for numericaL variables",font=10)
+  
+  dev.off()
+  #data summary
+  #summary(data)
+}
+
+#-----------------------------------------------
+uni_visual <- function(data,name=names(data),index=NULL,dirc=getwd())
+{
+  
+  if(!is.data.frame(data))
+    stop("The given object is not a data frame")
+  if(is.null(index))
+  {
+    index = ifelse( name %in% names(data),match(name, names(data)), 1:ncol(data))
+  }
+  for(i in index)    
+  {
+    if(is.numeric(data[,i])) 
+    {
+      setwd(dirc)
+      png(paste(names(data)[i], ".png", sep=""), width = 1920, height = 1080) #NOTE this step
+
+      summ = summary(data[,i])
+      sum_det = paste(names(summ),format(summ,digits = 3),collapse = "  |  ")
+      
+      p1 <- ggplot(c, aes(x = data[,i])) + geom_histogram() + labs(subtitle = "Histogram") + xlab(names(data)[i]) + theme(plot.margin = unit(c(0,0,-1,0), "lines"))
+      p2 <- ggplot(c, aes(y = data[,i])) + geom_boxplot(fill="grey60") + coord_flip() + labs(subtitle = "Boxplot") + ylab(names(data)[i]) + theme(plot.margin = unit(c(0,0,0.5,0), "lines"))
+      print(plot_grid(p1,p2,nrow = 2,rel_heights =c(0.9,0.5),rel_widths = c(1,0.5),scale = c(0.9, 0.9),align = c('v')) + draw_figure_label(label=paste("                                               Univariate analysis of ",names(data)[i]),position = "top.left", size = 14,fontface = "bold") + draw_figure_label(label=paste("                     ",sum_det),position = "bottom.left", size = 10,fontface = "bold"))
+      
+      dev.off()  #NOTE this step
+    }
+    if(is.factor(data[,i])) 
+    {
+     
+      setwd(dirc)
+     
+      png(paste(names(data)[i], ".png", sep=""), width = 1920, height = 1080) #NOTE this step
+      par(mfrow=c(1,2),mar=c(5, 6, 5, 2) + 0.5)
+      barplot(table(data[,i]), main ="Bar Graph",xlab = "Frequency",cex.names=1,horiz = TRUE, las=1 )
+      
+      pct <- round(table(data[,i])/sum(table(data[,i]))*100)
+      lbls <- paste(names(table(data[,i])),':',pct,"%",sep="") # add % to labels 
+      pie(table(data[,i]),main = "Pie Chart",labels = lbls,cex=1,radius=0.8,col = gray(seq(0.3, 1.0, length = 8)))
+      par(oma=c(0,0,2,0))
+      title(paste("Univariate analysis of ",names(data)[i]) , outer=TRUE)
+      
+      dev.off()  #NOTE this step
+    }
+  }
+}
+
+#--------------------------------------------------------------------------------------
+
+bi_visual <- function(data,name=NULL,index=NULL,dirc=getwd())
+{
+  
+  if(!is.data.frame(data))
+    stop("The given object is not a data frame")
+  
+  if(is.null(index))
+  {
+    index = ifelse( name %in% names(data),match(name, names(data)), 1:ncol(data))
+  }
+  
+  if(is.numeric(data[,index[1]]) && is.numeric(data[,index[2]]))
+  {
+    setwd(dirc)
+    png(paste(names(data[,index])[1],'-',names(data[,index])[2], ".png", sep=""), width = 1280, height = 720) 
+    print(ggplot(data,aes(x = data[,index[1]],y = data[,index[2]])) + geom_point(color="cornflowerblue",size = 2,alpha=.8) + labs(x = names(data[index[1]]),y = names(data[index[2]]),title = paste("Bivariate Analysis of ",names(data[index[1]]),'and',names(data[index[2]]))) + theme_minimal()) 
+    dev.off()
+  }
+  
+  if(is.factor(data[,index[1]]) && is.factor(data[,index[2]]))
+  {
+    setwd(dirc)
+    png(paste(names(data[,index])[1],'-',names(data[,index])[2], ".png", sep=""), width = 1280, height = 720) 
+    print(ggplot(data, aes(x = data[,index[1]],fill = data[,index[2]])) + geom_bar() + scale_fill_brewer(palette = "Set2") + coord_flip() + labs(x = names(data[index[1]]),fill = names(data[index[2]]),title = paste("Bivariate Analysis of ",names(data[index[1]]),'and',names(data[index[2]]))) + theme_minimal()) 
+    dev.off()
+  }
+  
+  if(is.factor(data[,index[1]]) && is.numeric(data[,index[2]]))
+  {
+    setwd(dirc)
+    png(paste(names(data[,index])[1],'-',names(data[,index])[2], ".png", sep=""), width = 1280, height = 720) 
+    print(ggplot(data, aes(x = data[,index[1]], y = data[,index[2]])) + geom_boxplot(fill = "cornflowerblue",alpha = .7) + labs(x = names(data[index[1]]),y = names(data[index[2]]),title = paste("Bivariate Analysis of ",names(data[index[1]]),'and',names(data[index[2]]))) + theme_minimal()) 
+    dev.off()
+  }
+}
+  
